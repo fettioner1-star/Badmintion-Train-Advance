@@ -22,7 +22,6 @@
             font-size: 1.5em; font-weight: bold; color: #ffc107;
             margin-bottom: 10px; min-height: 1.5em;
         }
-        /* 【V3.1 修改】讓戰術板更清晰 */
         .tactical-board {
             margin-bottom: 10px;
         }
@@ -37,9 +36,8 @@
             background-color: #222; display: flex; justify-content: center; align-items: center;
             color: #777; font-size: 12px; transition: background-color 0.1s ease, box-shadow 0.1s ease;
         }
-        /* 【V3.1 新增】戰術目標點的高亮樣式 */
         .target-active {
-            background-color: #00e676; /* 螢光綠 */
+            background-color: #00e676;
             color: black;
             font-weight: bold;
             box-shadow: 0 0 10px #00e676, 0 0 20px #00e676;
@@ -54,7 +52,10 @@
         .controls input[type="number"] { width: 60px; }
         .grid-container {
             display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
-            width: 90%; max-width: 500px; height: 55%; max-height: 600px;
+            width: 90%; max-width: 500px; 
+            /* 【V3.2 修改】使用 flex-grow 讓訓練區塊自動填滿剩餘空間 */
+            flex-grow: 1;
+            padding-bottom: 15px; /* 增加一點底部空間 */
         }
         .box {
             background-color: #333; display: flex; justify-content: center; align-items: center;
@@ -70,7 +71,6 @@
     </style>
 </head>
 <body>
-    <h1>六點位反應訓練器</h1>
     <div class="stats-timer">訓練時間: <span id="timer-display">00:00</span></div>
 
     <div class="tactical-board">
@@ -105,45 +105,37 @@
     </div>
 
     <script>
-        // --- 元素獲取 ---
+        // --- JavaScript 部分完全沒有變動 ---
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const intervalInput = document.getElementById('interval');
         const colorSelect = document.getElementById('color-select');
-        const modeSelect = document.getElementById('mode-select'); // 【V3.1 新增】
+        const modeSelect = document.getElementById('mode-select');
         const timerDisplay = document.getElementById('timer-display');
         const boxes = { 1: document.getElementById('box-1'), 2: document.getElementById('box-2'), 3: document.getElementById('box-3'), 4: document.getElementById('box-4'), 5: document.getElementById('box-5'), 6: document.getElementById('box-6') };
         const allBoxes = Object.values(boxes);
-        const targetZones = { 1: document.getElementById('target-1'), 2: document.getElementById('target-2'), 3: document.getElementById('target-3'), 4: document.getElementById('target-4'), 5: document.getElementById('target-5'), 6: document.getElementById('target-6') }; // 【V3.1 新增】
-        const allTargetZones = Object.values(targetZones); // 【V3.1 新增】
+        const targetZones = { 1: document.getElementById('target-1'), 2: document.getElementById('target-2'), 3: document.getElementById('target-3'), 4: document.getElementById('target-4'), 5: document.getElementById('target-5'), 6: document.getElementById('target-6') };
+        const allTargetZones = Object.values(targetZones);
 
-        // --- 【V3.1 新增】戰術資料庫 ---
         const tacticalDrills = [
-            { move: 1, target: 6, name: "網前直線放短，吊後場反手" },
-            { move: 2, target: 1, name: "中場正手突擊，推網前直線" },
-            { move: 3, target: 4, name: "後場正手高遠，吊對角網前" },
-            { move: 4, target: 3, name: "網前反手勾對角，到後場正手" },
-            { move: 5, target: 5, name: "中場反手平抽，回擋中路" },
-            { move: 6, target: 2, name: "後場反手殺直線，到中場正手" },
+            { move: 1, target: 6, name: "網前直線放短，吊後場反手" }, { move: 2, target: 1, name: "中場正手突擊，推網前直線" },
+            { move: 3, target: 4, name: "後場正手高遠，吊對角網前" }, { move: 4, target: 3, name: "網前反手勾對角，到後場正手" },
+            { move: 5, target: 5, name: "中場反手平抽，回擋中路" }, { move: 6, target: 2, name: "後場反手殺直線，到中場正手" },
         ];
-        let lastDrillIndex = -1; // 用於避免戰術重複
+        let lastDrillIndex = -1;
 
-        // --- 狀態變數 ---
         let mainTimerId = null, cueTimerId = null, stopwatchTimerId = null;
         let startTime = 0, lastActiveBox = null, lastRandomNumber = 0, baseInterval = 3000;
-        let currentMode = 'classic'; // 【V3.1 新增】
+        let currentMode = 'classic';
         const CUE_DURATION = 250;
 
-        // --- 主要函式 ---
         function startTraining() {
             stopTraining();
-            currentMode = modeSelect.value; // 【V3.1 核心變更】讀取當前模式
+            currentMode = modeSelect.value;
             baseInterval = parseFloat(intervalInput.value) * 1000;
             if (isNaN(baseInterval) || baseInterval < 500) { alert("基準時間最短為 0.5 秒。"); return; }
-            
             startBtn.disabled = true; stopBtn.disabled = false;
             intervalInput.disabled = true; colorSelect.disabled = true; modeSelect.disabled = true;
-            
             startTime = Date.now();
             updateTimerDisplay();
             stopwatchTimerId = setInterval(updateTimerDisplay, 1000);
@@ -154,9 +146,8 @@
             clearTimeout(mainTimerId); clearTimeout(cueTimerId); clearInterval(stopwatchTimerId);
             mainTimerId = null; cueTimerId = null; stopwatchTimerId = null;
             allBoxes.forEach(box => { box.className = 'box'; });
-            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); }); // 【V3.1 新增】
+            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); });
             lastActiveBox = null; lastRandomNumber = 0; lastDrillIndex = -1;
-            
             startBtn.disabled = false; stopBtn.disabled = true;
             intervalInput.disabled = false; colorSelect.disabled = false; modeSelect.disabled = false;
         }
@@ -170,44 +161,35 @@
 
         function runDrillSequence() {
             if (lastActiveBox) { lastActiveBox.className = 'box'; }
-            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); }); // 清除上一個目標
+            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); });
             allBoxes.forEach(box => { box.classList.add('anticipation-cue'); });
             
-            // 【V3.1 核心變更】根據模式決定下一步的資訊
             if (currentMode === 'classic') {
                 cueTimerId = setTimeout(() => showMainSignal(null), CUE_DURATION);
-            } else { // tactical mode
+            } else {
                 let drillIndex;
-                do {
-                    drillIndex = Math.floor(Math.random() * tacticalDrills.length);
-                } while (drillIndex === lastDrillIndex);
+                do { drillIndex = Math.floor(Math.random() * tacticalDrills.length); } while (drillIndex === lastDrillIndex);
                 lastDrillIndex = drillIndex;
                 const drill = tacticalDrills[drillIndex];
                 cueTimerId = setTimeout(() => showMainSignal(drill), CUE_DURATION);
             }
         }
 
-        function showMainSignal(drill) { // 【V3.1 核心變更】函式現在接收一個 drill 物件
+        function showMainSignal(drill) {
             allBoxes.forEach(box => { box.classList.remove('anticipation-cue'); });
-
             let moveNumber, targetNumber;
-
             if (currentMode === 'classic') {
-                do {
-                    moveNumber = Math.floor(Math.random() * 6) + 1;
-                } while (moveNumber === lastRandomNumber);
+                do { moveNumber = Math.floor(Math.random() * 6) + 1; } while (moveNumber === lastRandomNumber);
                 lastRandomNumber = moveNumber;
-            } else { // tactical mode
+            } else {
                 moveNumber = drill.move;
                 targetNumber = drill.target;
-                targetZones[targetNumber].classList.add('target-active'); // 點亮戰術目標！
+                targetZones[targetNumber].classList.add('target-active');
             }
-
             const newActiveBox = boxes[moveNumber];
             const selectedColor = colorSelect.value;
             newActiveBox.className = 'box active-' + selectedColor;
             lastActiveBox = newActiveBox;
-
             let nextInterval;
             if (moveNumber === 2 || moveNumber === 5) {
                 nextInterval = baseInterval * (2 / 3);
@@ -216,7 +198,6 @@
             }
             mainTimerId = setTimeout(runDrillSequence, nextInterval);
         }
-
         startBtn.addEventListener('click', startTraining);
         stopBtn.addEventListener('click', stopTraining);
     </script>
