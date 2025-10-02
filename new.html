@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>六點位反應訓練器 (戰術意識版)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            -webkit-user-select: none; user-select: none;
+        }
+        .stats-timer {
+            font-size: 1.5em; font-weight: bold; color: #ffc107;
+            margin-bottom: 10px; min-height: 1.5em;
+        }
+        /* 【V3.1 修改】讓戰術板更清晰 */
+        .tactical-board {
+            margin-bottom: 10px;
+        }
+        .tactical-board-title {
+            font-size: 10px; color: #888; text-align: center; margin-bottom: 2px;
+        }
+        .court-diagram {
+            display: grid; grid-template-columns: 40px 40px; grid-template-rows: 25px 25px 25px;
+            gap: 2px; border: 1px solid #666; background-color: #666;
+        }
+        .court-zone {
+            background-color: #222; display: flex; justify-content: center; align-items: center;
+            color: #777; font-size: 12px; transition: background-color 0.1s ease, box-shadow 0.1s ease;
+        }
+        /* 【V3.1 新增】戰術目標點的高亮樣式 */
+        .target-active {
+            background-color: #00e676; /* 螢光綠 */
+            color: black;
+            font-weight: bold;
+            box-shadow: 0 0 10px #00e676, 0 0 20px #00e676;
+        }
+        .controls {
+            display: flex; gap: 15px; align-items: center; margin-bottom: 15px;
+            flex-wrap: wrap; justify-content: center; padding: 10px;
+        }
+        .controls label, .controls input, .controls select, .controls button {
+            font-size: 16px;
+        }
+        .controls input[type="number"] { width: 60px; }
+        .grid-container {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            width: 90%; max-width: 500px; height: 55%; max-height: 600px;
+        }
+        .box {
+            background-color: #333; display: flex; justify-content: center; align-items: center;
+            font-size: 3em; font-weight: bold; border-radius: 10px;
+            transition: background-color 0.05s ease, outline 0.05s ease;
+            outline: 0px solid white;
+        }
+        .anticipation-cue { outline-width: 3px; }
+        .active-B { background-color: #007bff; }
+        .active-Y { background-color: #ffc107; }
+        .active-R { background-color: #dc3545; }
+        .active-G { background-color: #28a745; }
+    </style>
+</head>
+<body>
+    <h1>六點位反應訓練器</h1>
+    <div class="stats-timer">訓練時間: <span id="timer-display">00:00</span></div>
+
+    <div class="tactical-board">
+        <div class="tactical-board-title">擊球目標點</div>
+        <div class="court-diagram">
+            <div class="court-zone" id="target-1">1</div> <div class="court-zone" id="target-4">4</div>
+            <div class="court-zone" id="target-2">2</div> <div class="court-zone" id="target-5">5</div>
+            <div class="court-zone" id="target-3">3</div> <div class="court-zone" id="target-6">6</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <label for="mode-select">模式:</label>
+        <select id="mode-select">
+            <option value="classic">經典模式</option>
+            <option value="tactical">戰術模式</option>
+        </select>
+        <label for="interval">基準時間(秒):</label>
+        <input type="number" id="interval" value="3" min="0.5" step="0.25">
+        <label for="color-select">顏色:</label>
+        <select id="color-select">
+            <option value="B">藍色</option> <option value="Y">黃色</option>
+            <option value="R">紅色</option> <option value="G">綠色</option>
+        </select>
+        <button id="startBtn">開始訓練</button>
+        <button id="stopBtn" disabled>停止訓練</button>
+    </div>
+    <div class="grid-container">
+        <div class="box" id="box-1">1</div> <div class="box" id="box-4">4</div>
+        <div class="box" id="box-2">2</div> <div class="box" id="box-5">5</div>
+        <div class="box" id="box-3">3</div> <div class="box" id="box-6">6</div>
+    </div>
+
+    <script>
+        // --- 元素獲取 ---
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const intervalInput = document.getElementById('interval');
+        const colorSelect = document.getElementById('color-select');
+        const modeSelect = document.getElementById('mode-select'); // 【V3.1 新增】
+        const timerDisplay = document.getElementById('timer-display');
+        const boxes = { 1: document.getElementById('box-1'), 2: document.getElementById('box-2'), 3: document.getElementById('box-3'), 4: document.getElementById('box-4'), 5: document.getElementById('box-5'), 6: document.getElementById('box-6') };
+        const allBoxes = Object.values(boxes);
+        const targetZones = { 1: document.getElementById('target-1'), 2: document.getElementById('target-2'), 3: document.getElementById('target-3'), 4: document.getElementById('target-4'), 5: document.getElementById('target-5'), 6: document.getElementById('target-6') }; // 【V3.1 新增】
+        const allTargetZones = Object.values(targetZones); // 【V3.1 新增】
+
+        // --- 【V3.1 新增】戰術資料庫 ---
+        const tacticalDrills = [
+            { move: 1, target: 6, name: "網前直線放短，吊後場反手" },
+            { move: 2, target: 1, name: "中場正手突擊，推網前直線" },
+            { move: 3, target: 4, name: "後場正手高遠，吊對角網前" },
+            { move: 4, target: 3, name: "網前反手勾對角，到後場正手" },
+            { move: 5, target: 5, name: "中場反手平抽，回擋中路" },
+            { move: 6, target: 2, name: "後場反手殺直線，到中場正手" },
+        ];
+        let lastDrillIndex = -1; // 用於避免戰術重複
+
+        // --- 狀態變數 ---
+        let mainTimerId = null, cueTimerId = null, stopwatchTimerId = null;
+        let startTime = 0, lastActiveBox = null, lastRandomNumber = 0, baseInterval = 3000;
+        let currentMode = 'classic'; // 【V3.1 新增】
+        const CUE_DURATION = 250;
+
+        // --- 主要函式 ---
+        function startTraining() {
+            stopTraining();
+            currentMode = modeSelect.value; // 【V3.1 核心變更】讀取當前模式
+            baseInterval = parseFloat(intervalInput.value) * 1000;
+            if (isNaN(baseInterval) || baseInterval < 500) { alert("基準時間最短為 0.5 秒。"); return; }
+            
+            startBtn.disabled = true; stopBtn.disabled = false;
+            intervalInput.disabled = true; colorSelect.disabled = true; modeSelect.disabled = true;
+            
+            startTime = Date.now();
+            updateTimerDisplay();
+            stopwatchTimerId = setInterval(updateTimerDisplay, 1000);
+            runDrillSequence(); 
+        }
+
+        function stopTraining() {
+            clearTimeout(mainTimerId); clearTimeout(cueTimerId); clearInterval(stopwatchTimerId);
+            mainTimerId = null; cueTimerId = null; stopwatchTimerId = null;
+            allBoxes.forEach(box => { box.className = 'box'; });
+            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); }); // 【V3.1 新增】
+            lastActiveBox = null; lastRandomNumber = 0; lastDrillIndex = -1;
+            
+            startBtn.disabled = false; stopBtn.disabled = true;
+            intervalInput.disabled = false; colorSelect.disabled = false; modeSelect.disabled = false;
+        }
+
+        function updateTimerDisplay() {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function runDrillSequence() {
+            if (lastActiveBox) { lastActiveBox.className = 'box'; }
+            allTargetZones.forEach(zone => { zone.classList.remove('target-active'); }); // 清除上一個目標
+            allBoxes.forEach(box => { box.classList.add('anticipation-cue'); });
+            
+            // 【V3.1 核心變更】根據模式決定下一步的資訊
+            if (currentMode === 'classic') {
+                cueTimerId = setTimeout(() => showMainSignal(null), CUE_DURATION);
+            } else { // tactical mode
+                let drillIndex;
+                do {
+                    drillIndex = Math.floor(Math.random() * tacticalDrills.length);
+                } while (drillIndex === lastDrillIndex);
+                lastDrillIndex = drillIndex;
+                const drill = tacticalDrills[drillIndex];
+                cueTimerId = setTimeout(() => showMainSignal(drill), CUE_DURATION);
+            }
+        }
+
+        function showMainSignal(drill) { // 【V3.1 核心變更】函式現在接收一個 drill 物件
+            allBoxes.forEach(box => { box.classList.remove('anticipation-cue'); });
+
+            let moveNumber, targetNumber;
+
+            if (currentMode === 'classic') {
+                do {
+                    moveNumber = Math.floor(Math.random() * 6) + 1;
+                } while (moveNumber === lastRandomNumber);
+                lastRandomNumber = moveNumber;
+            } else { // tactical mode
+                moveNumber = drill.move;
+                targetNumber = drill.target;
+                targetZones[targetNumber].classList.add('target-active'); // 點亮戰術目標！
+            }
+
+            const newActiveBox = boxes[moveNumber];
+            const selectedColor = colorSelect.value;
+            newActiveBox.className = 'box active-' + selectedColor;
+            lastActiveBox = newActiveBox;
+
+            let nextInterval;
+            if (moveNumber === 2 || moveNumber === 5) {
+                nextInterval = baseInterval * (2 / 3);
+            } else {
+                nextInterval = baseInterval;
+            }
+            mainTimerId = setTimeout(runDrillSequence, nextInterval);
+        }
+
+        startBtn.addEventListener('click', startTraining);
+        stopBtn.addEventListener('click', stopTraining);
+    </script>
+</body>
+</html>
