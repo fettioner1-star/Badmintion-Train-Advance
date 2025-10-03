@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>六點位反應訓練器 (戰術意識版)</title>
+    <title>六點位反應訓練器 (響應式佈局版)</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -12,18 +12,21 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between; /* 【V3.4 修改】讓子元素在垂直方向均勻分佈 */
             height: 100vh;
             margin: 0;
             overflow: hidden;
             -webkit-user-select: none; user-select: none;
+            padding: 10px 0; /* 【V3.4 新增】整體上下內邊距，提供呼吸空間 */
+            box-sizing: border-box; /* 【V3.4 新增】確保 padding 不會導致溢出 */
         }
         .stats-timer {
             font-size: 1.5em; font-weight: bold; color: #ffc107;
-            margin-bottom: 10px; min-height: 1.5em;
+            margin-bottom: 1vh; /* 【V3.4 修改】使用vh單位，更具響應性 */
+            min-height: 1.5em;
         }
         .tactical-board {
-            margin-bottom: 10px;
+            margin-bottom: 1vh; /* 【V3.4 修改】使用vh單位 */
         }
         .tactical-board-title {
             font-size: 10px; color: #888; text-align: center; margin-bottom: 2px;
@@ -43,7 +46,7 @@
             box-shadow: 0 0 10px #00e676, 0 0 20px #00e676;
         }
         .controls {
-            display: flex; gap: 15px; align-items: center; margin-bottom: 15px;
+            display: flex; gap: 15px; align-items: center; margin-bottom: 1vh; /* 【V3.4 修改】使用vh單位 */
             flex-wrap: wrap; justify-content: center; padding: 10px;
         }
         .controls label, .controls input, .controls select, .controls button {
@@ -51,17 +54,37 @@
         }
         .controls input[type="number"] { width: 60px; }
         .grid-container {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
-            width: 90%; max-width: 500px; 
-            /* 【V3.2 修改】使用 flex-grow 讓訓練區塊自動填滿剩餘空間 */
-            flex-grow: 1;
-            padding-bottom: 15px; /* 增加一點底部空間 */
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 1.5vh; /* 【V3.4 修改】使用vh單位，讓間距更響應式 */
+            width: 90%;
+            max-width: 500px;
+            /* 【V3.4 修改】關鍵調整：限制最大高度並讓其彈性成長 */
+            flex-grow: 1; /* 允許成長 */
+            max-height: 60vh; /* 【V3.4 限制】限制訓練區塊的最大高度為螢幕高度的60% */
+            /* 移除 padding-bottom: 15px; 因為 body 已經有 padding */
         }
         .box {
             background-color: #333; display: flex; justify-content: center; align-items: center;
-            font-size: 3em; font-weight: bold; border-radius: 10px;
+            /* 【V3.4 修改】字體大小使用 vw (viewport width) 或 vmin (viewport min) */
+            font-size: 6vw; /* 讓字體大小根據螢幕寬度調整 */
+            min-height: 10vw; /* 確保方塊在極端情況下不會太扁 */
+            font-weight: bold; border-radius: 10px;
             transition: background-color 0.05s ease, outline 0.05s ease;
             outline: 0px solid white;
+        }
+        /* 【V3.4 補充】針對超小型螢幕（高度特別矮）進行額外優化 */
+        @media (max-height: 500px) {
+            .stats-timer, .tactical-board, .controls {
+                margin-bottom: 0.5vh; /* 縮小垂直間距 */
+            }
+            .grid-container {
+                gap: 1vh; /* 縮小方塊間距 */
+                max-height: 55vh; /* 稍微再縮小一些 */
+            }
+            .box {
+                font-size: 5.5vw; /* 略微縮小字體 */
+                min-height: 9vw;
+            }
         }
         .anticipation-cue { outline-width: 3px; }
         .active-B { background-color: #007bff; }
@@ -105,7 +128,6 @@
     </div>
 
     <script>
-        // --- JavaScript 部分完全沒有變動 ---
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const intervalInput = document.getElementById('interval');
@@ -117,13 +139,6 @@
         const targetZones = { 1: document.getElementById('target-1'), 2: document.getElementById('target-2'), 3: document.getElementById('target-3'), 4: document.getElementById('target-4'), 5: document.getElementById('target-5'), 6: document.getElementById('target-6') };
         const allTargetZones = Object.values(targetZones);
 
-        const tacticalDrills = [
-            { move: 1, target: 6, name: "網前直線放短，吊後場反手" }, { move: 2, target: 1, name: "中場正手突擊，推網前直線" },
-            { move: 3, target: 4, name: "後場正手高遠，吊對角網前" }, { move: 4, target: 3, name: "網前反手勾對角，到後場正手" },
-            { move: 5, target: 5, name: "中場反手平抽，回擋中路" }, { move: 6, target: 2, name: "後場反手殺直線，到中場正手" },
-        ];
-        let lastDrillIndex = -1;
-
         let mainTimerId = null, cueTimerId = null, stopwatchTimerId = null;
         let startTime = 0, lastActiveBox = null, lastRandomNumber = 0, baseInterval = 3000;
         let currentMode = 'classic';
@@ -134,8 +149,9 @@
             currentMode = modeSelect.value;
             baseInterval = parseFloat(intervalInput.value) * 1000;
             if (isNaN(baseInterval) || baseInterval < 500) { alert("基準時間最短為 0.5 秒。"); return; }
+            colorSelect.disabled = (currentMode === 'tactical');
             startBtn.disabled = true; stopBtn.disabled = false;
-            intervalInput.disabled = true; colorSelect.disabled = true; modeSelect.disabled = true;
+            intervalInput.disabled = true; modeSelect.disabled = true;
             startTime = Date.now();
             updateTimerDisplay();
             stopwatchTimerId = setInterval(updateTimerDisplay, 1000);
@@ -147,7 +163,7 @@
             mainTimerId = null; cueTimerId = null; stopwatchTimerId = null;
             allBoxes.forEach(box => { box.className = 'box'; });
             allTargetZones.forEach(zone => { zone.classList.remove('target-active'); });
-            lastActiveBox = null; lastRandomNumber = 0; lastDrillIndex = -1;
+            lastActiveBox = null; lastRandomNumber = 0;
             startBtn.disabled = false; stopBtn.disabled = true;
             intervalInput.disabled = false; colorSelect.disabled = false; modeSelect.disabled = false;
         }
@@ -163,33 +179,31 @@
             if (lastActiveBox) { lastActiveBox.className = 'box'; }
             allTargetZones.forEach(zone => { zone.classList.remove('target-active'); });
             allBoxes.forEach(box => { box.classList.add('anticipation-cue'); });
-            
-            if (currentMode === 'classic') {
-                cueTimerId = setTimeout(() => showMainSignal(null), CUE_DURATION);
-            } else {
-                let drillIndex;
-                do { drillIndex = Math.floor(Math.random() * tacticalDrills.length); } while (drillIndex === lastDrillIndex);
-                lastDrillIndex = drillIndex;
-                const drill = tacticalDrills[drillIndex];
-                cueTimerId = setTimeout(() => showMainSignal(drill), CUE_DURATION);
-            }
+            cueTimerId = setTimeout(showMainSignal, CUE_DURATION);
         }
 
-        function showMainSignal(drill) {
+        function showMainSignal() {
             allBoxes.forEach(box => { box.classList.remove('anticipation-cue'); });
             let moveNumber, targetNumber;
+
+            do {
+                moveNumber = Math.floor(Math.random() * 6) + 1;
+            } while (moveNumber === lastRandomNumber);
+            
             if (currentMode === 'classic') {
-                do { moveNumber = Math.floor(Math.random() * 6) + 1; } while (moveNumber === lastRandomNumber);
-                lastRandomNumber = moveNumber;
-            } else {
-                moveNumber = drill.move;
-                targetNumber = drill.target;
+                const selectedColor = colorSelect.value;
+                boxes[moveNumber].className = 'box active-' + selectedColor;
+            } else { // tactical mode
+                do {
+                    targetNumber = Math.floor(Math.random() * 6) + 1;
+                } while (targetNumber === moveNumber); 
                 targetZones[targetNumber].classList.add('target-active');
+                boxes[moveNumber].className = 'box active-B'; 
             }
-            const newActiveBox = boxes[moveNumber];
-            const selectedColor = colorSelect.value;
-            newActiveBox.className = 'box active-' + selectedColor;
-            lastActiveBox = newActiveBox;
+            
+            lastRandomNumber = moveNumber;
+            lastActiveBox = boxes[moveNumber];
+
             let nextInterval;
             if (moveNumber === 2 || moveNumber === 5) {
                 nextInterval = baseInterval * (2 / 3);
